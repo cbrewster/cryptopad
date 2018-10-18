@@ -5,3 +5,8 @@ authors = ["Connor Brewster <connor.brewster@eagles.oc.edu>"]
 edition = "2018"
 
 [dependencies]
+aes = "0.3.1"
+sha2 = "0.8.0"
+
+[dev-dependencies]
+hex-literal = "0.1.1"
