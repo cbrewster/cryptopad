@@ -13,7 +13,9 @@ use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, BlockModeError, BlockModeIv, Cbc};
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
+use std::io::prelude::*;
 use std::str;
+use std::fs::File;
 
 type Aes256CBC = Cbc<Aes256, Pkcs7>;
 #[derive(Clone, Copy, Debug)]
@@ -25,6 +27,35 @@ pub struct Key([u8; 32]);
 pub struct EncryptionError;
 #[derive(Debug)]
 pub struct DecryptionError;
+
+#[repr(u8)]
+enum FileType {
+    Plain = 0x01,
+    Encrypted = 0x02,
+}
+
+pub fn save_text_to_file(path: &str, text: &str, password: &str) -> Result<(), EncryptionError> {
+    let key = password_to_key(password);
+    let (encrypted_text, iv) = encrypt_text(text, key)?;
+    let mut file = File::create(path).unwrap();
+    file.write(&[FileType::Encrypted as u8]).unwrap();
+    file.write(&iv.0).unwrap();
+    file.write(&encrypted_text).unwrap();
+    Ok(())
+}
+
+pub fn load_file(path: &str, password: &str) -> Result<String, DecryptionError> {
+    let key = password_to_key(password);
+    let mut file = File::open(path).unwrap();
+    let mut file_type = [FileType::Encrypted as u8];
+    file.read_exact(&mut file_type).unwrap();
+    let mut iv = IV([0; 16]);
+    file.read_exact(&mut iv.0).unwrap();
+    let mut encrypted_text = Vec::new();
+    file.read_to_end(&mut encrypted_text).unwrap();
+
+    decrypt_text(&encrypted_text, iv, key)
+}
 
 pub fn password_to_key(password: &str) -> Key {
     let mut hasher = Sha256::new();
