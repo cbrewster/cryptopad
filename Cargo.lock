@@ -47,6 +47,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-modes"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "block-cipher-trait 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "block-padding 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "block-padding"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -69,6 +78,7 @@ name = "cryptopad"
 version = "0.1.0"
 dependencies = [
  "aes 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "block-modes 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex-literal 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -158,6 +168,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum aesni 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ea93ee7c249d885b395fca6181fd6416f0249b1a0a7c7a2e8bfd6b74cebd2f82"
 "checksum block-buffer 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)" = "49665c62e0e700857531fa5d3763e91b539ff1abeebd56808d378b495870d60d"
 "checksum block-cipher-trait 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "30668a4dc25ca695ad6f4c4734b96b0a4414a87158eefeec04155bcef580a3de"
+"checksum block-modes 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "283fa06a14026feac8912bf35328fc074f5d68907fd4b9cccad5658a3fc62a30"
 "checksum block-padding 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "4fc4358306e344bf9775d0197fd00d2603e5afb0771bb353538630f022068ea3"
 "checksum byte-tools 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "980479e6fde23246dfb54d47580d66b4e99202e7579c5eaa9fe10ecb5ebd2182"
 "checksum byteorder 1.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "90492c5858dd7d2e78691cfb89f90d273a2800fc11d98f60786e5d87e2f83781"
