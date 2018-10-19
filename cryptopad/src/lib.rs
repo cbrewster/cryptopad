@@ -15,77 +15,126 @@ use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::prelude::*;
+use std::path::PathBuf;
 use std::str;
 
 type Aes256CBC = Cbc<Aes256, Pkcs7>;
 #[derive(Clone, Copy, Debug)]
-pub struct IV([u8; 16]);
+struct IV([u8; 16]);
+
+impl IV {
+    fn generate() -> IV {
+        let mut rand = thread_rng();
+        IV(rand.gen())
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
-pub struct Key([u8; 32]);
+struct Key([u8; 32]);
+
+impl Key {
+    fn new_from_password(password: &str) -> Key {
+        let mut hasher = Sha256::new();
+        hasher.input(password);
+        let mut result = [0; 32];
+        result.copy_from_slice(&hasher.result()[..]);
+        Key(result)
+    }
+}
 
 #[derive(Debug)]
 pub struct EncryptionError;
 #[derive(Debug)]
 pub struct DecryptionError;
 
-#[repr(u8)]
-enum FileType {
-    Plain = 0x01,
-    Encrypted = 0x02,
+const ENCRYPTED_TAG: u8 = 0xFF;
+
+pub enum SaveOption {
+    Plain,
+    Encrypted(String),
 }
 
-pub fn save_text_to_file(path: &str, text: &str, password: &str) -> Result<(), EncryptionError> {
-    let key = password_to_key(password);
-    let (encrypted_text, iv) = encrypt_text(text, key)?;
+pub enum CryptoFile {
+    Plain(String),
+    Encrypted(EncryptedFile),
+}
+
+pub struct EncryptedFile {
+    iv: IV,
+    cipher_text: Vec<u8>,
+}
+
+impl CryptoFile {
+    pub fn new(contents: Vec<u8>) -> Result<CryptoFile, DecryptionError> {
+        if contents[0] == ENCRYPTED_TAG {
+            let mut iv = IV([0; 16]);
+            iv.0.copy_from_slice(&contents[1..17]);
+            let cipher_text = contents[17..].iter().cloned().collect();
+            Ok(CryptoFile::Encrypted(EncryptedFile { iv, cipher_text }))
+        } else {
+            Ok(CryptoFile::Plain(String::from_utf8(contents).unwrap()))
+        }
+    }
+
+    pub fn new_from_file(path: &str) -> Result<CryptoFile, DecryptionError> {
+        let mut file = File::open(path).unwrap();
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents).unwrap();
+        if contents[0] == ENCRYPTED_TAG {
+            let mut iv = IV([0; 16]);
+            iv.0.copy_from_slice(&contents[1..17]);
+            let cipher_text = contents[17..].iter().cloned().collect();
+            Ok(CryptoFile::Encrypted(EncryptedFile { iv, cipher_text }))
+        } else {
+            Ok(CryptoFile::Plain(String::from_utf8(contents).unwrap()))
+        }
+    }
+}
+
+impl EncryptedFile {
+    pub fn try_decrypt(&self, password: &str) -> Result<String, DecryptionError> {
+        let key = Key::new_from_password(password);
+        decrypt_text(&self.cipher_text, self.iv, key)
+    }
+}
+
+pub fn save_text_to_file(
+    path: PathBuf,
+    text: &str,
+    save_options: SaveOption,
+) -> Result<(), EncryptionError> {
     let mut file = File::create(path).unwrap();
-    file.write(&[FileType::Encrypted as u8]).unwrap();
-    file.write(&iv.0).unwrap();
-    file.write(&encrypted_text).unwrap();
+    match save_options {
+        SaveOption::Plain => {
+            file.write(text.as_bytes()).unwrap();
+        }
+        SaveOption::Encrypted(password) => {
+            let key = Key::new_from_password(&password);
+            let (encrypted_text, iv) = encrypt_text(text, key)?;
+            file.write_all(&[ENCRYPTED_TAG]).unwrap();
+            file.write_all(&iv.0).unwrap();
+            file.write_all(&encrypted_text).unwrap();
+        }
+    }
     Ok(())
 }
 
-pub fn load_file(path: &str, password: &str) -> Result<String, DecryptionError> {
-    let key = password_to_key(password);
-    let mut file = File::open(path).unwrap();
-    let mut file_type = [FileType::Encrypted as u8];
-    file.read_exact(&mut file_type).unwrap();
-    let mut iv = IV([0; 16]);
-    file.read_exact(&mut iv.0).unwrap();
-    let mut encrypted_text = Vec::new();
-    file.read_to_end(&mut encrypted_text).unwrap();
-
-    decrypt_text(&encrypted_text, iv, key)
-}
-
-pub fn password_to_key(password: &str) -> Key {
-    let mut hasher = Sha256::new();
-    hasher.input(password);
-    let mut result = [0; 32];
-    result.copy_from_slice(&hasher.result()[..]);
-    Key(result)
-}
-
-pub fn encrypt_text(text: &str, key: Key) -> Result<(Vec<u8>, IV), EncryptionError> {
+fn encrypt_text(text: &str, key: Key) -> Result<(Vec<u8>, IV), EncryptionError> {
     let mut bytes: Vec<u8> = text.as_bytes().to_vec();
     let length = bytes.len();
     bytes.resize(length + 16, 0);
-    let iv = generate_iv();
+    let iv = IV::generate();
     let cipher = Aes256CBC::new_varkey(&key.0, &GenericArray::clone_from_slice(&iv.0))?;
     let bytes = cipher.encrypt_pad(&mut bytes, length)?;
     Ok((bytes.to_vec(), iv))
 }
 
-pub fn decrypt_text(cipher_text: &[u8], iv: IV, key: Key) -> Result<String, DecryptionError> {
+fn decrypt_text(cipher_text: &[u8], iv: IV, key: Key) -> Result<String, DecryptionError> {
     let cipher = Aes256CBC::new_varkey(&key.0, &GenericArray::clone_from_slice(&iv.0))?;
     let mut cipher_text = Vec::from(cipher_text);
     let bytes = cipher_text.as_mut_slice();
     let bytes = cipher.decrypt_pad(bytes)?;
     Ok(str::from_utf8(bytes).unwrap().to_owned())
-}
-
-fn generate_iv() -> IV {
-    let mut rand = thread_rng();
-    IV(rand.gen())
 }
 
 impl From<InvalidKeyLength> for EncryptionError {
@@ -118,7 +167,7 @@ mod tests {
 
     #[test]
     fn create_key() {
-        let Key(key) = password_to_key("test123");
+        let Key(key) = Key::new_from_password("test123");
         assert_eq!(
             key[..],
             hex!("ecd71870d1963316a97e3ac3408c9835ad8cf0f3c1bc703527c30265534f75ae")
@@ -127,7 +176,7 @@ mod tests {
 
     #[test]
     fn encrypt_decrypt() {
-        let key = password_to_key("test123");
+        let key = Key::new_from_password("test123");
         let text = "
         This is a se1cret!
         Testing

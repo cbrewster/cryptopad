@@ -6,4 +6,19 @@ edition = "2018"
 
 [dependencies]
 cryptopad = { path = "../cryptopad" }
-gtk = "0.5.0"
+gtk-sys = "0.7.0"
+relm-attributes = "0.15.0"
+relm = "0.15.0"
+relm-derive = "0.15.0"
+
+[dependencies.gtk]
+version = "0.5.0"
+features = ["v3_18"]
+
+[dependencies.gio]
+version = "0.5.0"
+features = ["v2_50"]
+
+[features]
+default = ["relm/unstable", "relm-attributes/unstable", "relm-derive/unstable"]
+
