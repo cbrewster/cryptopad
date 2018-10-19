@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 cryptopad = { path = "../cryptopad" }
+gtk = "0.5.0"

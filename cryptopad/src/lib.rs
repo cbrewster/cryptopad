@@ -13,9 +13,9 @@ use block_modes::block_padding::Pkcs7;
 use block_modes::{BlockMode, BlockModeError, BlockModeIv, Cbc};
 use rand::{thread_rng, Rng};
 use sha2::{Digest, Sha256};
+use std::fs::File;
 use std::io::prelude::*;
 use std::str;
-use std::fs::File;
 
 type Aes256CBC = Cbc<Aes256, Pkcs7>;
 #[derive(Clone, Copy, Debug)]
@@ -71,8 +71,7 @@ pub fn encrypt_text(text: &str, key: Key) -> Result<(Vec<u8>, IV), EncryptionErr
     bytes.resize(length + 16, 0);
     let iv = generate_iv();
     let cipher = Aes256CBC::new_varkey(&key.0, &GenericArray::clone_from_slice(&iv.0))?;
-    let bytes = cipher
-        .encrypt_pad(&mut bytes, length)?;
+    let bytes = cipher.encrypt_pad(&mut bytes, length)?;
     Ok((bytes.to_vec(), iv))
 }
 
